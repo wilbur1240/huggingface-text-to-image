@@ -4,15 +4,25 @@ import random
 from huggingface_hub import InferenceClient
 import os
 
+# For security in deployment: use secrets instead of hardcoding your API key
+client = InferenceClient(
+    provider="hf-inference",
+    api_key=os.environ["HF_API_TOKEN"]  # Make sure this is set as a secret
+)
+
 MAX_SEED = np.iinfo(np.int32).max
 MAX_IMAGE_SIZE = 1024
 
-client = InferenceClient(
-    provider="hf-inference",
-    api_key=os.environ["HF_API_TOKEN"]
-)
-
-def infer(prompt, negative_prompt, seed, randomize_seed, width, height, guidance_scale, num_inference_steps):
+def infer(
+    prompt,
+    negative_prompt,
+    seed,
+    randomize_seed,
+    width,
+    height,
+    guidance_scale,
+    num_inference_steps,
+):
     if randomize_seed:
         seed = random.randint(0, MAX_SEED)
 
@@ -28,34 +38,120 @@ def infer(prompt, negative_prompt, seed, randomize_seed, width, height, guidance
     )
     return image, seed
 
-# Step 1: Build the interface (as before)
-interface = gr.Interface(
-    fn=infer,
-    inputs=[
-        gr.Textbox(label="Prompt"),
-        gr.Textbox(label="Negative Prompt", value=""),
-        gr.Slider(0, MAX_SEED, label="Seed", value=0),
-        gr.Checkbox(label="Randomize Seed", value=True),
-        gr.Slider(256, MAX_IMAGE_SIZE, label="Width", step=32, value=768),
-        gr.Slider(256, MAX_IMAGE_SIZE, label="Height", step=32, value=768),
-        gr.Slider(0, 10, label="Guidance Scale", step=0.1, value=0.0),
-        gr.Slider(1, 50, label="Steps", step=1, value=2)
-    ],
-    outputs=[
-        gr.Image(label="Generated Image"),
-        gr.Number(label="Seed Used")
-    ],
-    examples=[
-        ["A futuristic cityscape at sunset", "", 0, True, 768, 768, 0.0, 2],
-        ["A cat in a space suit", "", 0, True, 768, 768, 0.0, 2],
-    ],
-    allow_flagging="never"
-)
+examples = [
+    "Astronaut in a jungle, cold color palette, muted colors, detailed, 8k",
+    "An astronaut riding a green horse",
+    "A delicious ceviche cheesecake slice",
+]
 
-# Step 2: Render the interface inside a Blocks container
-with gr.Blocks() as demo:
-    interface.render()
+css = """
+#col-container {
+    margin: 0 auto;
+    max-width: 640px;
+}
+"""
 
-# Step 3: Launch cleanly
+with gr.Blocks(css=css) as demo:
+    with gr.Column(elem_id="col-container"):
+        gr.Markdown(" # Text-to-Image Gradio Template")
+
+        with gr.Row():
+            prompt = gr.Text(
+                label="Prompt",
+                show_label=False,
+                max_lines=1,
+                placeholder="Enter your prompt",
+                container=False,
+            )
+
+            run_button = gr.Button("Run", scale=0, variant="primary")
+
+        result = gr.Image(label="Result", show_label=False)
+
+        with gr.Accordion("Advanced Settings", open=False):
+            negative_prompt = gr.Text(
+                label="Negative prompt",
+                max_lines=1,
+                placeholder="Enter a negative prompt",
+                visible=True,
+                value=""
+            )
+
+            seed = gr.Slider(
+                label="Seed",
+                minimum=0,
+                maximum=MAX_SEED,
+                step=1,
+                value=0,
+            )
+
+            randomize_seed = gr.Checkbox(label="Randomize seed", value=True)
+
+            with gr.Row():
+                width = gr.Slider(
+                    label="Width",
+                    minimum=256,
+                    maximum=MAX_IMAGE_SIZE,
+                    step=32,
+                    value=1024,
+                )
+
+                height = gr.Slider(
+                    label="Height",
+                    minimum=256,
+                    maximum=MAX_IMAGE_SIZE,
+                    step=32,
+                    value=1024,
+                )
+
+            with gr.Row():
+                guidance_scale = gr.Slider(
+                    label="Guidance scale",
+                    minimum=0.0,
+                    maximum=10.0,
+                    step=0.1,
+                    value=0.0,
+                )
+
+                num_inference_steps = gr.Slider(
+                    label="Number of inference steps",
+                    minimum=1,
+                    maximum=50,
+                    step=1,
+                    value=2,
+                )
+
+        gr.Examples(examples=examples, inputs=[prompt])
+
+        run_button.click(
+            fn=infer,
+            inputs=[
+                prompt,
+                negative_prompt,
+                seed,
+                randomize_seed,
+                width,
+                height,
+                guidance_scale,
+                num_inference_steps,
+            ],
+            outputs=[result, seed],
+        )
+
+        prompt.submit(
+            fn=infer,
+            inputs=[
+                prompt,
+                negative_prompt,
+                seed,
+                randomize_seed,
+                width,
+                height,
+                guidance_scale,
+                num_inference_steps,
+            ],
+            outputs=[result, seed],
+        )
+
 if __name__ == "__main__":
-    demo.launch(show_api=False)
+    demo.launch(show_api=False, prevent_thread_lock=True)
