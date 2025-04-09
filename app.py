@@ -1,27 +1,18 @@
 import gradio as gr
 import numpy as np
 import random
+from huggingface_hub import InferenceClient
+import os
 
-# import spaces #[uncomment to use ZeroGPU]
-from diffusers import DiffusionPipeline
-import torch
-
-device = "cuda" if torch.cuda.is_available() else "cpu"
-model_repo_id = "stabilityai/sdxl-turbo"  # Replace to the model you would like to use
-
-if torch.cuda.is_available():
-    torch_dtype = torch.float16
-else:
-    torch_dtype = torch.float32
-
-pipe = DiffusionPipeline.from_pretrained(model_repo_id, torch_dtype=torch_dtype)
-pipe = pipe.to(device)
+# For security in deployment: use secrets instead of hardcoding your API key
+client = InferenceClient(
+    provider="hf-inference",
+    api_key=os.environ["HF_API_TOKEN"]  # Make sure this is set as a secret
+)
 
 MAX_SEED = np.iinfo(np.int32).max
 MAX_IMAGE_SIZE = 1024
 
-
-# @spaces.GPU #[uncomment to use ZeroGPU]
 def infer(
     prompt,
     negative_prompt,
@@ -31,25 +22,21 @@ def infer(
     height,
     guidance_scale,
     num_inference_steps,
-    progress=gr.Progress(track_tqdm=True),
 ):
     if randomize_seed:
         seed = random.randint(0, MAX_SEED)
 
-    generator = torch.Generator().manual_seed(seed)
-
-    image = pipe(
+    image = client.text_to_image(
         prompt=prompt,
+        model="stabilityai/sdxl-turbo",
         negative_prompt=negative_prompt,
         guidance_scale=guidance_scale,
         num_inference_steps=num_inference_steps,
         width=width,
         height=height,
-        generator=generator,
-    ).images[0]
-
+        seed=seed,
+    )
     return image, seed
-
 
 examples = [
     "Astronaut in a jungle, cold color palette, muted colors, detailed, 8k",
@@ -86,7 +73,8 @@ with gr.Blocks(css=css) as demo:
                 label="Negative prompt",
                 max_lines=1,
                 placeholder="Enter a negative prompt",
-                visible=False,
+                visible=True,
+                value=""
             )
 
             seed = gr.Slider(
@@ -105,7 +93,7 @@ with gr.Blocks(css=css) as demo:
                     minimum=256,
                     maximum=MAX_IMAGE_SIZE,
                     step=32,
-                    value=1024,  # Replace with defaults that work for your model
+                    value=1024,
                 )
 
                 height = gr.Slider(
@@ -113,7 +101,7 @@ with gr.Blocks(css=css) as demo:
                     minimum=256,
                     maximum=MAX_IMAGE_SIZE,
                     step=32,
-                    value=1024,  # Replace with defaults that work for your model
+                    value=1024,
                 )
 
             with gr.Row():
@@ -122,7 +110,7 @@ with gr.Blocks(css=css) as demo:
                     minimum=0.0,
                     maximum=10.0,
                     step=0.1,
-                    value=0.0,  # Replace with defaults that work for your model
+                    value=0.0,
                 )
 
                 num_inference_steps = gr.Slider(
@@ -130,25 +118,40 @@ with gr.Blocks(css=css) as demo:
                     minimum=1,
                     maximum=50,
                     step=1,
-                    value=2,  # Replace with defaults that work for your model
+                    value=2,
                 )
 
         gr.Examples(examples=examples, inputs=[prompt])
-    gr.on(
-        triggers=[run_button.click, prompt.submit],
-        fn=infer,
-        inputs=[
-            prompt,
-            negative_prompt,
-            seed,
-            randomize_seed,
-            width,
-            height,
-            guidance_scale,
-            num_inference_steps,
-        ],
-        outputs=[result, seed],
-    )
+
+        run_button.click(
+            fn=infer,
+            inputs=[
+                prompt,
+                negative_prompt,
+                seed,
+                randomize_seed,
+                width,
+                height,
+                guidance_scale,
+                num_inference_steps,
+            ],
+            outputs=[result, seed],
+        )
+
+        prompt.submit(
+            fn=infer,
+            inputs=[
+                prompt,
+                negative_prompt,
+                seed,
+                randomize_seed,
+                width,
+                height,
+                guidance_scale,
+                num_inference_steps,
+            ],
+            outputs=[result, seed],
+        )
 
 if __name__ == "__main__":
-    demo.launch()
+    demo.launch(show_api=False)
