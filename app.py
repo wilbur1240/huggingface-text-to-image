@@ -154,4 +154,4 @@ with gr.Blocks(css=css) as demo:
         )
 
 if __name__ == "__main__":
-    demo.launch(show_api=False, prevent_thread_lock=True)
+    demo.launch(show_api=False, prevent_thread_lock=True, share=True)
