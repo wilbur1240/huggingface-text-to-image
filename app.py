@@ -28,7 +28,8 @@ def infer(prompt, negative_prompt, seed, randomize_seed, width, height, guidance
     )
     return image, seed
 
-demo = gr.Interface(
+# Step 1: Build the interface (as before)
+interface = gr.Interface(
     fn=infer,
     inputs=[
         gr.Textbox(label="Prompt"),
@@ -48,8 +49,13 @@ demo = gr.Interface(
         ["A futuristic cityscape at sunset", "", 0, True, 768, 768, 0.0, 2],
         ["A cat in a space suit", "", 0, True, 768, 768, 0.0, 2],
     ],
-    title="SDXL Turbo Text-to-Image",
     allow_flagging="never"
 )
 
-demo.launch(show_api=False)
+# Step 2: Render the interface inside a Blocks container
+with gr.Blocks() as demo:
+    interface.render()
+
+# Step 3: Launch cleanly
+if __name__ == "__main__":
+    demo.launch(show_api=False)
