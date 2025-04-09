@@ -51,7 +51,7 @@ css = """
 }
 """
 
-with gr.Blocks(css=css) as demo:
+with gr.Blocks(css=css, show_api=False) as demo:
     with gr.Column(elem_id="col-container"):
         gr.Markdown(" # Text-to-Image Gradio Template")
 
