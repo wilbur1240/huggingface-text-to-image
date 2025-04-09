@@ -1,10 +1,11 @@
+pydantic==2.10.6
 accelerate
 diffusers
 invisible_watermark
 torch
 transformers
 xformers
-gradio==4.15.0
+gradio
 huggingface_hub>=0.20.0
 Pillow
 numpy
