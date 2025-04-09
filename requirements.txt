@@ -4,3 +4,7 @@ invisible_watermark
 torch
 transformers
 xformers
+gradio==4.15.0
+huggingface_hub>=0.20.0
+Pillow
+numpy
